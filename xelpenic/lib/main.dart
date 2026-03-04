@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:xelpenic/screens/nowshowing.dart';
 import 'screens/homescreen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -43,6 +44,7 @@ class _MainScreenState extends State<MainScreen> {
 
   // รายการหน้าจอตาม Tab
   final List<Widget> _screens = [
+    const NowShowingScreen(),
     const Center(child: Text('NOW SHOWING')), // Index 0
     const Center(child: Text('COINS')),       // Index 1
     const HomeScreen(),                       // Index 2 (HOME)
