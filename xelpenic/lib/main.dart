@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:xelpenic/screens/cinemascreen.dart';
 // อย่าลืมเช็คชื่อไฟล์ import ให้ตรงกับของแพทนะครับ
 import 'screens/homescreen.dart';
 import 'screens/more_screen.dart';
@@ -81,7 +82,7 @@ class _MainScreenState extends State<MainScreen> {
       const NowShowingScreen(), 
       const Center(child: Text('COINS')),      
       const HomeScreen(),                       
-      const Center(child: Text('CINEMA')),      
+      const CinemaScreen(),      
       MoreScreen(onLogout: onLogout), // ส่งฟังก์ชันไปให้หน้า More
     ];
 
