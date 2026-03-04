@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:xelpenic/screens/nowshowing.dart';
-import 'screens/homescreen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+// อย่าลืมเช็คชื่อไฟล์ import ให้ตรงกับของแพทนะครับ
+import 'screens/homescreen.dart';
+import 'screens/more_screen.dart';
+import 'package:xelpenic/screens/nowshowing.dart';
 
 Future<void> main() async {
-  // 2. ต้องมีบรรทัดนี้เสมอเมื่อเราจะเรียกใช้ Async ก่อน runApp
   WidgetsFlutterBinding.ensureInitialized();
   
-  // 3. ตั้งค่าการเชื่อมต่อ Supabase
+  // ตั้งค่าการเชื่อมต่อ Supabase
   await Supabase.initialize(
     url: 'https://dnaqqxfyjeuhvudynnze.supabase.co',
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRuYXFxeGZ5amV1aHZ1ZHlubnplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2MDg0MTgsImV4cCI6MjA4ODE4NDQxOH0.5RO7vBY38b4IeN0o-gCqh2knNNa3lwZ_OfhTWmZIEec',
@@ -22,10 +23,12 @@ class XelpenicApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false, // เอาแถบ Debug ออกเพื่อให้สวยเหมือนเครื่องจริง
       title: 'Xelpenic',
       theme: ThemeData(
         scaffoldBackgroundColor: Colors.white,
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.brown),
+        useMaterial3: true,
       ),
       home: const MainScreen(),
     );
@@ -40,51 +43,83 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int _selectedIndex = 2; // กำหนดให้เริ่มต้นที่หน้า HOME (Index 2)
+  int _selectedIndex = 2; // เริ่มต้นที่หน้า HOME
+  final _supabase = Supabase.instance.client;
+  
+  @override
+  void initState() {
+    super.initState();
+    // ดักฟังสถานะการเปลี่ยน Auth (Login/Logout)
+    _supabase.auth.onAuthStateChange.listen((data) {
+      if (data.event == AuthChangeEvent.signedOut) {
+        if (mounted) {
+          setState(() {
+            _selectedIndex = 2; // กลับมาหน้า Home เมื่อ Logout
+          });
+        }
+      }
+    });
+  }
 
-  // รายการหน้าจอตาม Tab
-  final List<Widget> _screens = [
-    const NowShowingScreen(), // Index 0
-    const Center(child: Text('COINS')),       // Index 1
-    const HomeScreen(),                       // Index 2 (HOME)
-    const Center(child: Text('CINEMA')),      // Index 3
-    const Center(child: Text('MORE')),        // Index 4
-  ];
+  // --- ฟังก์ชัน Logout ส่วนกลางที่ส่งไปให้ MoreScreen ใช้ ---
+  Future<void> onLogout() async {
+    try {
+      await _supabase.auth.signOut(); // คำสั่ง Logout หลัก
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    // รายการหน้าจอ โดยใช้ IndexedStack เพื่อรักษา State ข้อมูล (แต้ม/ชื่อ) ไม่ให้หาย
+    final List<Widget> _screens = [
+      const NowShowingScreen(), 
+      const Center(child: Text('COINS')),      
+      const HomeScreen(),                       
+      const Center(child: Text('CINEMA')),      
+      MoreScreen(onLogout: onLogout), // ส่งฟังก์ชันไปให้หน้า More
+    ];
+
     return Scaffold(
-      body: _screens[_selectedIndex],
-      // สร้างปุ่ม HOME ตรงกลาง
+      // ใช้ IndexedStack เพื่อให้หน้า Home ไม่ถูกทำลายเมื่อสลับไปหน้าอื่น
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _screens,
+      ),
+      
+      // ปุ่ม HOME โลโก้ X ตรงกลาง
       floatingActionButton: FloatingActionButton(
         onPressed: () => setState(() => _selectedIndex = 2),
         backgroundColor: Colors.white,
-        elevation: 2,
+        elevation: 4,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
         child: Padding(
-          padding: const EdgeInsets.all(8.0), // ปรับตัวเลขเพื่อขยาย/ลดระยะห่างจากขอบปุ่ม
+          padding: const EdgeInsets.all(8.0),
           child: Image.network(
-            'https://media.discordapp.net/attachments/1475457011565985792/1476608848415428669/Xelpenic_Logo_2.png?ex=69a8fee7&is=69a7ad67&hm=2920f5eb8db5bbc31c6b6b1ebe0640782f9af7dd0a7a79728e9e093d5bd7df47&=&format=webp&quality=lossless&width=930&height=930', // <-- นำ URL โลโก้ X ของแพทมาใส่ในเครื่องหมายคำพูดนี้ได้เลยครับ
+            'https://media.discordapp.net/attachments/1475457011565985792/1476608848415428669/Xelpenic_Logo_2.png?ex=69a8fee7&is=69a7ad67&hm=2920f5eb8db5bbc31c6b6b1ebe0640782f9af7dd0a7a79728e9e093d5bd7df47&=&format=webp&quality=lossless&width=930&height=930',
             fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) => const Icon(
-              Icons.broken_image, 
-              color: Colors.brown,
-            ),
+            errorBuilder: (context, error, stackTrace) => const Icon(Icons.home, color: Colors.brown),
           ),
         ),
-      ), // เปลี่ยนเป็นโลโก้ X ได้ภายหลัง
+      ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),
         notchMargin: 8.0,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _buildNavItem(icon: Icons.movie, label: 'NOW SHOWING', index: 0),
-            _buildNavItem(icon: Icons.card_giftcard, label: 'COINS', index: 1),
-            const SizedBox(width: 40), // เว้นที่ให้ปุ่ม HOME ตรงกลาง
-            _buildNavItem(icon: Icons.location_on, label: 'CINEMA', index: 3),
-            _buildNavItem(icon: Icons.menu, label: 'MORE', index: 4),
+            _buildNavItem(icon: Icons.movie_filter_outlined, label: 'NOW SHOWING', index: 0),
+            _buildNavItem(icon: Icons.monetization_on_outlined, label: 'COINS', index: 1),
+            const SizedBox(width: 40), // เว้นที่ให้ปุ่ม X
+            _buildNavItem(icon: Icons.location_on_outlined, label: 'CINEMA', index: 3),
+            _buildNavItem(icon: Icons.grid_view_rounded, label: 'MORE', index: 4),
           ],
         ),
       ),
@@ -98,11 +133,12 @@ class _MainScreenState extends State<MainScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: isSelected ? Colors.brown : Colors.grey),
+          Icon(icon, color: isSelected ? Colors.brown : Colors.grey, size: 24),
           Text(
             label,
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 9,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               color: isSelected ? Colors.brown : Colors.grey,
             ),
           ),
