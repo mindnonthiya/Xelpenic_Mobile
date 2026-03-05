@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:xelpenic/screens/notificationscreen.dart';
 
@@ -12,6 +15,8 @@ class CinemaScreen extends StatefulWidget {
 class _CinemaScreenState extends State<CinemaScreen> {
   final _supabase = Supabase.instance.client;
   late Future<List<Map<String, dynamic>>> _cinemasFuture;
+  LatLng? _currentLocation;
+  String? _locationErrorMessage;
 
   // ตัวแปรสำหรับแท็บ "สาขาทั้งหมด / สาขาที่ชอบ / ล่าสุด"
   int _selectedTopTab = 0; 
@@ -23,11 +28,44 @@ class _CinemaScreenState extends State<CinemaScreen> {
   void initState() {
     super.initState();
     _fetchCinemas();
+    _loadCurrentLocation();
   }
 
   void _fetchCinemas() {
     // ดึงข้อมูลสาขาจากตาราง cinema
     _cinemasFuture = _supabase.from('cinema').select().order('cm_name');
+  }
+
+  Future<void> _loadCurrentLocation() async {
+    final isServiceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!isServiceEnabled) {
+      if (!mounted) return;
+      setState(() {
+        _locationErrorMessage = 'กรุณาเปิด Location Service เพื่อดูแผนที่ใกล้คุณ';
+      });
+      return;
+    }
+
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      if (!mounted) return;
+      setState(() {
+        _locationErrorMessage = 'ไม่ได้รับสิทธิ์เข้าถึงตำแหน่งปัจจุบัน';
+      });
+      return;
+    }
+
+    final position = await Geolocator.getCurrentPosition();
+    if (!mounted) return;
+    setState(() {
+      _currentLocation = LatLng(position.latitude, position.longitude);
+      _locationErrorMessage = null;
+    });
   }
 
   @override
@@ -70,6 +108,8 @@ class _CinemaScreenState extends State<CinemaScreen> {
               _buildSearchBar(),
               const SizedBox(height: 16),
               _buildFilterTags(),
+              const SizedBox(height: 24),
+              _buildNearbyMapCard(),
               const SizedBox(height: 24),
               // ใช้ FutureBuilder ดึงข้อมูลจากฐานข้อมูลมาแสดง
               FutureBuilder<List<Map<String, dynamic>>>(
@@ -214,6 +254,64 @@ class _CinemaScreenState extends State<CinemaScreen> {
   }
 
   // --- 4. ไอเทมรายชื่อโรงหนัง 1 แถว ---
+  Widget _buildNearbyMapCard() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'แผนที่ใกล้คุณ',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: SizedBox(
+            height: 180,
+            width: double.infinity,
+            child: _currentLocation != null
+                ? FlutterMap(
+                    options: MapOptions(
+                      initialCenter: _currentLocation!,
+                      initialZoom: 15,
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate:
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.example.xelpenic',
+                      ),
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: _currentLocation!,
+                            width: 40,
+                            height: 40,
+                            child: const Icon(
+                              Icons.location_pin,
+                              color: Colors.red,
+                              size: 36,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  )
+                : Container(
+                    color: Colors.grey.shade200,
+                    child: Center(
+                      child: Text(
+                        _locationErrorMessage ?? 'กำลังโหลดตำแหน่งปัจจุบัน...',
+                        style: const TextStyle(color: Colors.black54),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildCinemaItem(Map<String, dynamic> cinema) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
