@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart'; 
 
 class MovieDetailScreen extends StatefulWidget {
   final Map<String, dynamic> movie;
@@ -15,11 +15,13 @@ class MovieDetailScreen extends StatefulWidget {
 class _MovieDetailScreenState extends State<MovieDetailScreen> {
   late YoutubePlayerController _controller;
   final _supabase = Supabase.instance.client;
+  
+  // กำหนดสีทองหลักของแอปไว้เรียกใช้
+  final Color goldColor = const Color(0xFFDDAA55);
 
   @override
   void initState() {
     super.initState();
-    // 1. จัดการตัวเล่นวิดีโอ (เทคนิคพิเศษข้อ 3.3)
     final trailerUrl = widget.movie['movie_trailer'] ?? "";
     final videoId = YoutubePlayer.convertUrlToId(trailerUrl);
 
@@ -29,13 +31,10 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
     );
   }
 
-  // 2. ฟังก์ชันดึงสาขา รอบฉาย และข้อมูลโรงภาพยนตร์ (Join 3 ตาราง)
   Future<List<Map<String, dynamic>>> _getShowtimes() async {
     final data = await _supabase
         .from('cinema')
-        .select(
-          '*, showtime!inner(*, theater(*))',
-        ) // ดึงรอบฉายและข้อมูลโรงไปพร้อมกัน
+        .select('*, showtime!inner(*, theater(*))')
         .eq('showtime.st_movie_id', widget.movie['movie_id']);
 
     return List<Map<String, dynamic>>.from(data);
@@ -50,21 +49,21 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFFDFBF7), // สีขาวอมครีมนิดๆ ให้ดูหรูหรา
       body: CustomScrollView(
         slivers: [
-          // ส่วน Banner วิดีโอ
           SliverAppBar(
             expandedHeight: 250,
             pinned: true,
-            backgroundColor: Colors.brown,
+            backgroundColor: Colors.black, // เปลี่ยนพื้นหลังวิดีโอเป็นสีดำให้ดูดุดัน
+            iconTheme: const IconThemeData(color: Color(0xFFDDAA55)), // ปุ่ม Back สีทอง
             flexibleSpace: FlexibleSpaceBar(
               background: YoutubePlayer(
                 controller: _controller,
                 showVideoProgressIndicator: true,
-                progressColors: const ProgressBarColors(
-                  playedColor: Colors.brown,
-                  handleColor: Colors.brown,
+                progressColors: ProgressBarColors(
+                  playedColor: goldColor, // หลอดวิดีโอสีทอง
+                  handleColor: goldColor,
                 ),
               ),
             ),
@@ -76,43 +75,51 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ชื่อเรื่องและประเภท
                   Text(
                     widget.movie['movie_title'] ?? 'ไม่ทราบชื่อภาพยนตร์',
                     style: const TextStyle(
-                      fontSize: 22,
+                      fontSize: 24,
                       fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
                     ),
                   ),
+                  const SizedBox(height: 4),
                   Text(
                     "${widget.movie['movie_genre'] ?? ''} • ${widget.movie['movie_duration'] ?? '0'} นาที",
-                    style: const TextStyle(color: Colors.grey),
+                    style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w500),
                   ),
                   const SizedBox(height: 20),
 
-                  // เรื่องย่อ
                   const Text(
                     "เรื่องย่อ",
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: 8),
                   Text(
                     widget.movie['movie_desc'] ?? 'ไม่มีข้อมูลเนื้อเรื่อง',
-                    style: const TextStyle(color: Colors.black87, height: 1.5),
+                    style: const TextStyle(color: Colors.black87, height: 1.6),
                   ),
 
-                  const Divider(height: 40),
-
-                  // ส่วนแสดงสาขาและรอบฉาย
-                  const Text(
-                    "เลือกรอบฉาย",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.brown,
-                    ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: Divider(color: Colors.black12),
                   ),
-                  const SizedBox(height: 10),
+
+                  Row(
+                    children: [
+                      Icon(Icons.location_on, color: goldColor, size: 22),
+                      const SizedBox(width: 8),
+                      Text(
+                        "เลือกรอบฉาย",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: goldColor, // หัวข้อสีทอง
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 15),
 
                   _buildCinemaList(),
                 ],
@@ -124,16 +131,15 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
     );
   }
 
-  // 3. Widget รายการสาขาโรงหนัง
   Widget _buildCinemaList() {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: _getShowtimes(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
+          return Center(
             child: Padding(
-              padding: EdgeInsets.all(20.0),
-              child: CircularProgressIndicator(color: Colors.brown),
+              padding: const EdgeInsets.all(20.0),
+              child: CircularProgressIndicator(color: goldColor),
             ),
           );
         }
@@ -153,159 +159,156 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: cinemas.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 10),
+          separatorBuilder: (context, index) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
             final cinema = cinemas[index];
             final List showtimes = cinema['showtime'];
 
-            // --- หัวใจสำคัญ: จัดกลุ่มรอบฉายตามชื่อโรงภาพยนตร์ ---
             Map<String, List<dynamic>> groupedShowtimes = {};
             for (var st in showtimes) {
-              String theaterName =
-                  st['theater']?['tt_name'] ?? 'โรงภาพยนตร์ทั่วไป';
+              String theaterName = st['theater']?['tt_name'] ?? 'โรงภาพยนตร์ทั่วไป'; // แก้กลับเป็น theator ตามตารางของแพทนะครับ
               if (!groupedShowtimes.containsKey(theaterName)) {
-                groupedShowtimes[theaterName] =
-                    []; // ถ้ายังไม่มีชื่อโรงนี้ ให้สร้างกลุ่มใหม่
+                groupedShowtimes[theaterName] = [];
               }
-              groupedShowtimes[theaterName]!.add(
-                st,
-              ); // เอารอบเวลาใส่เข้าไปในโรงนั้นๆ
+              groupedShowtimes[theaterName]!.add(st);
             }
 
             return Card(
-              elevation: 0,
+              elevation: 4, // เพิ่มเงาให้ดูมีมิติ
+              shadowColor: goldColor.withOpacity(0.1),
               shape: RoundedRectangleBorder(
-                side: BorderSide(color: Colors.grey.shade200),
-                borderRadius: BorderRadius.circular(8),
+                side: BorderSide(color: goldColor.withOpacity(0.3), width: 1), // ขอบสีทองอ่อนๆ
+                borderRadius: BorderRadius.circular(12),
               ),
               child: ExpansionTile(
-                initiallyExpanded: index == 0, // ให้สาขาแรกกางออกอัตโนมัติ
-                tilePadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                leading: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: CachedNetworkImage(
-                    imageUrl: cinema['cm_image_url'] ?? '',
-                    width: 50,
-                    height: 50,
-                    fit: BoxFit.cover,
-                    errorWidget: (context, url, error) => const Icon(
-                      Icons.theaters,
-                      color: Colors.brown,
-                      size: 40,
+                initiallyExpanded: index == 0,
+                collapsedIconColor: goldColor,
+                iconColor: goldColor,
+                tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                leading: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: goldColor),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: CachedNetworkImage(
+                      imageUrl: cinema['cm_image_url'] ?? '',
+                      width: 45,
+                      height: 45,
+                      fit: BoxFit.cover,
+                      errorWidget: (context, url, error) => Icon(
+                        Icons.theaters,
+                        color: goldColor,
+                        size: 30,
+                      ),
                     ),
                   ),
                 ),
                 title: Text(
                   cinema['cm_name'] ?? 'XELPENIC สาขา',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
-                subtitle: const Text(
+                subtitle: Text(
                   "5.33 กม.",
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
-                trailing: const Icon(
-                  Icons.keyboard_arrow_down,
-                  color: Colors.brown,
-                ),
-
-                // ส่วนแสดงผลโรงภาพยนตร์และเวลาที่อยู่ข้างใน
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.only(
-                      left: 16,
-                      right: 16,
-                      bottom: 16,
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
                     ),
+                    padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      // วนลูปตามกลุ่มโรงภาพยนตร์ที่เราจัดไว้
                       children: groupedShowtimes.entries.map((entry) {
                         String theaterName = entry.key;
                         List<dynamic> timesInThisTheater = entry.value;
 
-                        // เรียงเวลาจากน้อยไปมาก (ป้องกันเวลาสลับกัน)
-                        timesInThisTheater.sort(
-                          (a, b) => DateTime.parse(
-                            a['st_time'],
-                          ).compareTo(DateTime.parse(b['st_time'])),
-                        );
+                        timesInThisTheater.sort((a, b) =>
+                            DateTime.parse(a['st_time']).compareTo(DateTime.parse(b['st_time'])));
 
                         return Padding(
-                          padding: const EdgeInsets.only(bottom: 20),
+                          padding: const EdgeInsets.only(bottom: 20, top: 10),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // 1. ส่วนหัว: ชื่อโรงภาพยนตร์ (เช่น THEATER 3 | เสียง TH | 2D)
                               Row(
                                 children: [
                                   Text(
                                     theaterName.toUpperCase(),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                  ),
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(horizontal: 8),
+                                    child: Text('|', style: TextStyle(color: Colors.black26)),
+                                  ),
+                                  
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: goldColor, // ป้าย 2D สีทอง
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      'ทั่วไป',
+                                      style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                                     ),
                                   ),
-                                  const SizedBox(width: 10),
                                 ],
                               ),
-                              const SizedBox(height: 12),
+                              const SizedBox(height: 15),
 
-                              // 2. ส่วนกล่องเวลา: เอาเวลาทั้งหมดในโรงนี้มาโชว์
                               Wrap(
-                                spacing: 10,
-                                runSpacing: 10,
+                                spacing: 12,
+                                runSpacing: 12,
                                 children: timesInThisTheater.map((st) {
                                   DateTime time = DateTime.parse(st['st_time']);
-                                  String formattedTime = DateFormat(
-                                    'HH:mm',
-                                  ).format(time);
+                                  String formattedTime = DateFormat('HH:mm').format(time);
 
                                   return InkWell(
+                                    borderRadius: BorderRadius.circular(8),
                                     onTap: () {
-                                      // TODO: ไปหน้าเลือกที่นั่ง
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
+                                      ScaffoldMessenger.of(context).showSnackBar(
                                         SnackBar(
+                                          backgroundColor: Colors.black87,
                                           content: Text(
                                             'เลือก $theaterName รอบ $formattedTime น.',
+                                            style: TextStyle(color: goldColor),
                                           ),
                                         ),
                                       );
                                     },
                                     child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 10,
-                                      ),
+                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                                       decoration: BoxDecoration(
-                                        border: Border.all(
-                                          color: Colors.grey.shade300,
-                                        ),
-                                        borderRadius: BorderRadius.circular(4),
+                                        color: Colors.white,
+                                        border: Border.all(color: goldColor, width: 1.5), // กรอบปุ่มเวลาสีทอง
+                                        borderRadius: BorderRadius.circular(8),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: goldColor.withOpacity(0.15),
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 2),
+                                          )
+                                        ]
                                       ),
                                       child: Text(
                                         formattedTime,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontWeight: FontWeight.bold,
-                                          fontSize: 14,
-                                          color: Colors.brown,
+                                          fontSize: 15,
+                                          color: goldColor,
                                         ),
                                       ),
                                     ),
                                   );
                                 }).toList(),
                               ),
-                              const SizedBox(height: 5),
-                              const Divider(
-                                color: Colors.black12,
-                              ), // เส้นคั่นระหว่างโรง
+                              const SizedBox(height: 10),
+                              const Divider(color: Colors.black12),
                             ],
                           ),
                         );
