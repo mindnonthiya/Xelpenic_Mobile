@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:xelpenic/screens/seat_selection_screen.dart';
 
 class CinemaBranchScheduleScreen extends StatefulWidget {
   const CinemaBranchScheduleScreen({required this.cinema, super.key});
@@ -27,6 +29,7 @@ class _CinemaBranchScheduleScreenState
   late final List<DateTime> _dateOptions;
   late Future<List<_MovieSchedule>> _scheduleFuture;
   int _selectedDateIndex = 0;
+  final Set<String> _selectedFilters = {};
 
   @override
   void initState() {
@@ -54,7 +57,7 @@ class _CinemaBranchScheduleScreenState
     final response = await _supabase
         .from('showtime')
         .select(
-          'st_id, st_time, st_movie_id, st_tt_id, '
+          'st_id, st_time, st_movie_id, st_tt_id, st_cm_id, '
           'movies(movie_id, movie_title, movie_post, movie_genre, movie_duration), '
           'theater(tt_id, tt_name)',
         )
@@ -88,14 +91,48 @@ class _CinemaBranchScheduleScreenState
           duration: _formatDuration(movie?['movie_duration']),
           posterUrl: movie?['movie_post']?.toString(),
           theatres: {},
+          movie: movie ?? {'movie_id': movieId},
         ),
       );
 
       final times = schedule.theatres.putIfAbsent(theaterName, () => []);
-      times.add(_formatTime(stTime.toLocal()));
+      times.add(
+        _ShowtimeItem(
+          showtimeData: row,
+          dateTime: stTime.toLocal(),
+          formattedTime: _formatTime(stTime.toLocal()),
+        ),
+      );
     }
 
-    return movieMap.values.toList();
+    final movies = movieMap.values.toList();
+
+    if (_selectedFilters.isEmpty) {
+      return movies;
+    }
+
+    return movies
+        .map((movie) {
+          final filteredTheatres = <String, List<_ShowtimeItem>>{};
+
+          movie.theatres.forEach((theatreName, showtimes) {
+            final hasMatchingFilter = _selectedFilters.any(
+              (filter) => theatreName.toLowerCase().contains(
+                filter.toLowerCase(),
+              ),
+            );
+
+            if (hasMatchingFilter) {
+              filteredTheatres[theatreName] = showtimes;
+            }
+          });
+
+          if (filteredTheatres.isEmpty) return null;
+
+          return movie.copyWith(theatres: filteredTheatres);
+        })
+        .whereType<_MovieSchedule>()
+        .toList();
   }
 
   String _formatDuration(dynamic value) {
@@ -126,6 +163,27 @@ class _CinemaBranchScheduleScreenState
       'ธ.ค',
     ];
     return months[dateTime.month - 1];
+  }
+
+  String _formatThaiDayName(DateTime date) {
+    final today = DateTime.now();
+    if (date.day == today.day && date.month == today.month && date.year == today.year) {
+      return 'วันนี้';
+    }
+
+    const thaiDays = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
+    return thaiDays[date.weekday % 7];
+  }
+
+  void _toggleFormatFilter(String filter) {
+    setState(() {
+      if (_selectedFilters.contains(filter)) {
+        _selectedFilters.remove(filter);
+      } else {
+        _selectedFilters.add(filter);
+      }
+      _scheduleFuture = _fetchSchedule();
+    });
   }
 
   @override
@@ -181,9 +239,12 @@ class _CinemaBranchScheduleScreenState
                       ),
                     ],
                   ),
-                  const Text(
-                    'ที่อยู่ ปัจจุบัน',
-                    style: TextStyle(color: Colors.black54, fontSize: 12),
+                  Text(
+                    widget.cinema['cm_address']?.toString().trim().isNotEmpty ==
+                            true
+                        ? widget.cinema['cm_address'].toString()
+                        : (widget.cinema['cm_map_url']?.toString() ?? '-'),
+                    style: const TextStyle(color: Colors.black54, fontSize: 12),
                   ),
                   const SizedBox(height: 14),
                   const Divider(),
@@ -194,6 +255,7 @@ class _CinemaBranchScheduleScreenState
                       return _DateChip(
                         text: date.day.toString().padLeft(2, '0'),
                         month: _formatMonth(date),
+                        dayName: _formatThaiDayName(date),
                         selected: _selectedDateIndex == index,
                         onTap: () {
                           setState(() {
@@ -211,14 +273,45 @@ class _CinemaBranchScheduleScreenState
                       scrollDirection: Axis.horizontal,
                       itemCount: _movieFilters.length,
                       separatorBuilder: (_, __) => const SizedBox(width: 14),
-                      itemBuilder: (_, index) => Text(
-                        _movieFilters[index],
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontStyle: FontStyle.italic,
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
+                      itemBuilder: (_, index) {
+                        final label = _movieFilters[index];
+                        final isSelected = _selectedFilters.contains(label);
+
+                        return InkWell(
+                          borderRadius: BorderRadius.circular(20),
+                          onTap: () => _toggleFormatFilter(label),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? const Color(0xFFCBAE82)
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: isSelected
+                                    ? const Color(0xFFCBAE82)
+                                    : Colors.brown.shade200,
+                              ),
+                            ),
+                            child: Text(
+                              label,
+                              style: TextStyle(
+                                color: isSelected
+                                    ? Colors.white
+                                    : Colors.black87,
+                                fontSize: 12,
+                                fontWeight: isSelected
+                                    ? FontWeight.w700
+                                    : FontWeight.w400,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -252,7 +345,13 @@ class _CinemaBranchScheduleScreenState
 
               return Column(
                 children: movies
-                    .map((movie) => _MovieShowtimeCard(movie: movie))
+                    .map(
+                      (movie) => _MovieShowtimeCard(
+                        movie: movie,
+                        cinemaName: widget.cinema['cm_name']?.toString() ?? '-',
+                        selectedDate: _dateOptions[_selectedDateIndex],
+                      ),
+                    )
                     .toList(),
               );
             },
@@ -267,12 +366,14 @@ class _DateChip extends StatelessWidget {
   const _DateChip({
     required this.text,
     required this.month,
+    required this.dayName,
     required this.onTap,
     this.selected = false,
   });
 
   final String text;
   final String month;
+  final String dayName;
   final bool selected;
   final VoidCallback onTap;
 
@@ -295,6 +396,7 @@ class _DateChip extends StatelessWidget {
               month,
               style: const TextStyle(fontSize: 8, color: Colors.black87),
             ),
+            Text(dayName, style: const TextStyle(fontSize: 8)),
             Text(
               text,
               style: const TextStyle(fontWeight: FontWeight.bold, height: 1),
@@ -313,19 +415,54 @@ class _MovieSchedule {
     required this.duration,
     required this.posterUrl,
     required this.theatres,
+    required this.movie,
   });
 
   final String title;
   final String genre;
   final String duration;
   final String? posterUrl;
-  final Map<String, List<String>> theatres;
+  final Map<String, List<_ShowtimeItem>> theatres;
+  final Map<String, dynamic> movie;
+
+  _MovieSchedule copyWith({Map<String, List<_ShowtimeItem>>? theatres}) {
+    return _MovieSchedule(
+      title: title,
+      genre: genre,
+      duration: duration,
+      posterUrl: posterUrl,
+      theatres: theatres ?? this.theatres,
+      movie: movie,
+    );
+  }
+}
+
+class _ShowtimeItem {
+  const _ShowtimeItem({
+    required this.showtimeData,
+    required this.dateTime,
+    required this.formattedTime,
+  });
+
+  final Map<String, dynamic> showtimeData;
+  final DateTime dateTime;
+  final String formattedTime;
 }
 
 class _MovieShowtimeCard extends StatelessWidget {
-  const _MovieShowtimeCard({required this.movie});
+  const _MovieShowtimeCard({
+    required this.movie,
+    required this.cinemaName,
+    required this.selectedDate,
+  });
 
   final _MovieSchedule movie;
+  final String cinemaName;
+  final DateTime selectedDate;
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -425,20 +562,78 @@ class _MovieShowtimeCard extends StatelessWidget {
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: theatreEntry.value.map((time) {
-                      return Container(
-                        width: 64,
-                        alignment: Alignment.center,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFB9BDC2),
-                          borderRadius: BorderRadius.circular(5),
-                        ),
-                        child: Text(
-                          time,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500,
+                    children: theatreEntry.value.map((showtime) {
+                      final now = DateTime.now();
+                      final isExpired = showtime.dateTime.isBefore(now);
+                      final isToday = _isSameDay(selectedDate, now);
+                      final isCurrentBookable = !isExpired && isToday;
+                      final isAdvanceBookable = !isExpired && !isToday;
+
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(5),
+                        onTap: isExpired
+                            ? null
+                            : () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => SeatSelectionScreen(
+                                      movie: movie.movie,
+                                      cinemaName: cinemaName,
+                                      theaterName: theatreEntry.key,
+                                      showTime: DateFormat('HH:mm').format(
+                                        showtime.dateTime,
+                                      ),
+                                      showtimeData: showtime.showtimeData,
+                                    ),
+                                  ),
+                                );
+                              },
+                        child: Container(
+                          width: 90,
+                          alignment: Alignment.center,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isExpired
+                                ? const Color(0xFFB9BDC2)
+                                : isCurrentBookable
+                                ? const Color(0xFFFFD54F)
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(5),
+                            border: Border.all(
+                              color: isExpired
+                                  ? const Color(0xFFB9BDC2)
+                                  : isCurrentBookable
+                                  ? const Color(0xFFFFD54F)
+                                  : Colors.black87,
+                            ),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                showtime.formattedTime,
+                                style: TextStyle(
+                                  color: isAdvanceBookable
+                                      ? Colors.black87
+                                      : Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              Text(
+                                isExpired
+                                    ? 'หมดเวลาจอง'
+                                    : isCurrentBookable
+                                    ? 'จองได้ตอนนี้'
+                                    : 'จองล่วงหน้า',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  color: isAdvanceBookable
+                                      ? Colors.black54
+                                      : Colors.white,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       );
