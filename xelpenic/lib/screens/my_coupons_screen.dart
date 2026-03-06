@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // เพิ่ม import นี้สำหรับใช้งาน Clipboard (คัดลอกข้อความ)
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -134,7 +135,7 @@ class _MyCouponsScreenState extends State<MyCouponsScreen> {
           // ส่วนรูปภาพ
           Container(
             width: 100,
-            height: 120,
+            height: 130, // เพิ่มความสูงเล็กน้อยเผื่อปุ่มคัดลอก
             decoration: BoxDecoration(
               borderRadius: const BorderRadius.horizontal(
                 left: Radius.circular(15),
@@ -160,7 +161,7 @@ class _MyCouponsScreenState extends State<MyCouponsScreen> {
           // รอยปรุคูปอง
           Container(
             width: 1,
-            height: 100,
+            height: 110,
             margin: const EdgeInsets.symmetric(horizontal: 10),
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -182,12 +183,13 @@ class _MyCouponsScreenState extends State<MyCouponsScreen> {
             ),
           ),
 
-          // ส่วนข้อมูล และ QR Code
+          // ส่วนข้อมูล และ ปุ่มคัดลอกโค้ด
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
                     item['items_name'] ?? 'ไม่มีชื่อสินค้า',
@@ -223,15 +225,58 @@ class _MyCouponsScreenState extends State<MyCouponsScreen> {
                         ),
                       ),
                     )
-                  else
+                  else ...[
                     const Text(
-                      'โปรดแสดง QR ให้พนักงาน',
+                      'สแกน QR หรือใช้โค้ดด้านล่าง',
                       style: TextStyle(
                         color: Colors.green,
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    // --- ปุ่มคัดลอกโค้ด ---
+                    GestureDetector(
+                      onTap: () {
+                        Clipboard.setData(
+                          ClipboardData(text: qrData),
+                        ); // สั่งคัดลอกลง Clipboard
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('คัดลอกโค้ดเรียบร้อยแล้ว'),
+                            backgroundColor: blackColor,
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: goldColor.withOpacity(0.1),
+                          border: Border.all(color: goldColor.withOpacity(0.5)),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.copy, size: 14, color: goldColor),
+                            const SizedBox(width: 4),
+                            Text(
+                              'คัดลอกโค้ด',
+                              style: TextStyle(
+                                color: goldColor,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -245,7 +290,7 @@ class _MyCouponsScreenState extends State<MyCouponsScreen> {
               child: QrImageView(
                 data: qrData,
                 version: QrVersions.auto,
-                size: 70.0,
+                size: 65.0,
               ),
             ),
           ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'edit_profile_screen.dart'; // เตรียมเชื่อมต่อไฟล์
 import 'booking_history_screen.dart'; // เตรียมเชื่อมต่อไฟล์
 import 'my_coupons_screen.dart'; // เตรียมเชื่อมต่อไฟล์
+import 'redeem_screen.dart'; // เตรียมเชื่อมต่อไฟล์
 
 class MoreScreen extends StatelessWidget {
   final VoidCallback onLogout;
@@ -55,6 +56,12 @@ class MoreScreen extends StatelessWidget {
             Icons.confirmation_number_outlined, 
             'คูปองของฉัน', 
             () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MyCouponsScreen())),
+          ),
+          _buildMenuTile(
+            context, 
+            Icons.qr_code_scanner, 
+            'Redeem Code (กรอกโค้ดรับสิทธิ์)', 
+            () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RedeemScreen())),
           ),
           
           const Padding(
