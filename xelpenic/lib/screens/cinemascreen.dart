@@ -501,16 +501,23 @@ class _CinemaMapScreenState extends State<CinemaMapScreen> {
   int? _selectedCinemaId;
   String _query = '';
 
+  String _normalizeText(dynamic value) {
+    return value?.toString().toLowerCase().trim() ?? '';
+  }
+
+  List<Map<String, dynamic>> get _searchMatches {
+    if (_query.trim().isEmpty) return widget.cinemas;
+
+    final query = _query.toLowerCase().trim();
+    return widget.cinemas.where((cinema) {
+      final name = _normalizeText(cinema['cm_name']);
+      final mapInfo = _normalizeText(cinema['cm_map_url']);
+      return name.contains(query) || mapInfo.contains(query);
+    }).toList();
+  }
+
   List<Map<String, dynamic>> get _visibleCinemas {
-    if (_query.isEmpty) return widget.cinemas;
-    return widget.cinemas
-        .where(
-          (cinema) => (cinema['cm_name'] ?? '')
-              .toString()
-              .toLowerCase()
-              .contains(_query.toLowerCase()),
-        )
-        .toList();
+    return _searchMatches;
   }
 
   Map<String, dynamic>? get _selectedCinema {
@@ -560,6 +567,24 @@ class _CinemaMapScreenState extends State<CinemaMapScreen> {
     setState(() {
       _selectedCinemaId = cinema['cm_id'] as int?;
     });
+  }
+
+  void _onMapSearchChanged(String value) {
+    setState(() {
+      _query = value;
+    });
+
+    final matches = _searchMatches;
+    if (value.trim().isNotEmpty && matches.length == 1) {
+      _moveToCinema(matches.first);
+    }
+  }
+
+  void _submitMapSearch() {
+    final matches = _searchMatches;
+    if (matches.isNotEmpty) {
+      _moveToCinema(matches.first);
+    }
   }
 
   void _openCinemaListSheet() {
@@ -675,11 +700,8 @@ class _CinemaMapScreenState extends State<CinemaMapScreen> {
                           child: TextField(
                             controller: _searchController,
                             style: const TextStyle(color: Colors.white),
-                            onChanged: (value) {
-                              setState(() {
-                                _query = value;
-                              });
-                            },
+                            onChanged: _onMapSearchChanged,
+                            onSubmitted: (_) => _submitMapSearch(),
                             decoration: InputDecoration(
                               hintText: 'ค้นหาโรงภาพยนตร์',
                               hintStyle: const TextStyle(color: Colors.white70),
@@ -690,9 +712,7 @@ class _CinemaMapScreenState extends State<CinemaMapScreen> {
                                   : IconButton(
                                       onPressed: () {
                                         _searchController.clear();
-                                        setState(() {
-                                          _query = '';
-                                        });
+                                        _onMapSearchChanged('');
                                       },
                                       icon: Container(
                                         width: 20,
@@ -822,15 +842,9 @@ class _CinemaMapScreenState extends State<CinemaMapScreen> {
             widget.currentPosition!.latitude,
             widget.currentPosition!.longitude,
           ),
-          width: 26,
-          height: 26,
-          child: Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 3),
-              color: const Color(0xFF2A93FF),
-            ),
-          ),
+          width: 40,
+          height: 40,
+          child: const Icon(Icons.my_location, color: Colors.red, size: 32),
         ),
       );
     }
@@ -845,15 +859,34 @@ class _CinemaMapScreenState extends State<CinemaMapScreen> {
 
       markers.add(
         Marker(
-          width: 46,
-          height: 46,
+          width: 42,
+          height: 42,
           point: LatLng(cinema['latitude'], cinema['longitude']),
           child: GestureDetector(
             onTap: () => _moveToCinema(cinema),
-            child: Icon(
-              Icons.location_on,
-              color: selected ? Colors.redAccent : Colors.amber,
-              size: selected ? 38 : 34,
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: selected ? const Color(0xFFD44A4A) : const Color(0xFFB88352),
+                border: Border.all(color: Colors.white, width: selected ? 2.5 : 2),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 4,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Center(
+                child: Text(
+                  'X',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                  ),
+                ),
+              ),
             ),
           ),
         ),
